@@ -3,20 +3,13 @@ name: fetch-assets
 # Courier workflow: downloads the Seedance-generated clips from the
 # Higgsfield CDN (unreachable from the dev sandbox), extracts the hero
 # frame sequence, optimizes the background clips, and commits the
-# results to the branch it runs on.
+# results back to the branch. Triggered by changes to asset-urls.json.
 
 on:
-  workflow_dispatch:
-    inputs:
-      orbit_url:
-        description: "Hero orbit clip URL"
-        required: true
-      builder_url:
-        description: "Builder clip URL"
-        required: true
-      closer_url:
-        description: "Closer clip URL"
-        required: true
+  push:
+    paths:
+      - ".github/asset-urls.json"
+  workflow_dispatch: {}
 
 permissions:
   contents: write
@@ -32,9 +25,9 @@ jobs:
 
       - name: Download clips
         run: |
-          curl -fSL "${{ github.event.inputs.orbit_url }}" -o /tmp/orbit.mp4
-          curl -fSL "${{ github.event.inputs.builder_url }}" -o /tmp/builder_raw.mp4
-          curl -fSL "${{ github.event.inputs.closer_url }}" -o /tmp/closer_raw.mp4
+          curl -fSL "$(jq -r .orbit_url .github/asset-urls.json)" -o /tmp/orbit.mp4
+          curl -fSL "$(jq -r .builder_url .github/asset-urls.json)" -o /tmp/builder_raw.mp4
+          curl -fSL "$(jq -r .closer_url .github/asset-urls.json)" -o /tmp/closer_raw.mp4
           ls -la /tmp/*.mp4
 
       - name: Extract hero frame sequence
