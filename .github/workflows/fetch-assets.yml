@@ -1,0 +1,59 @@
+name: fetch-assets
+
+# Courier workflow: downloads the Seedance-generated clips from the
+# Higgsfield CDN (unreachable from the dev sandbox), extracts the hero
+# frame sequence, optimizes the background clips, and commits the
+# results to the branch it runs on.
+
+on:
+  workflow_dispatch:
+    inputs:
+      orbit_url:
+        description: "Hero orbit clip URL"
+        required: true
+      builder_url:
+        description: "Builder clip URL"
+        required: true
+      closer_url:
+        description: "Closer clip URL"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install ffmpeg
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+
+      - name: Download clips
+        run: |
+          curl -fSL "${{ github.event.inputs.orbit_url }}" -o /tmp/orbit.mp4
+          curl -fSL "${{ github.event.inputs.builder_url }}" -o /tmp/builder_raw.mp4
+          curl -fSL "${{ github.event.inputs.closer_url }}" -o /tmp/closer_raw.mp4
+          ls -la /tmp/*.mp4
+
+      - name: Extract hero frame sequence
+        run: bash scripts/extract-frames.sh /tmp/orbit.mp4 24 1600
+
+      - name: Optimize background clips
+        run: |
+          mkdir -p public/clips
+          ffmpeg -hide_banner -loglevel error -i /tmp/builder_raw.mp4 \
+            -c:v libx264 -crf 23 -preset slow -an -movflags +faststart public/clips/builder.mp4
+          ffmpeg -hide_banner -loglevel error -i /tmp/closer_raw.mp4 \
+            -c:v libx264 -crf 23 -preset slow -an -movflags +faststart public/clips/closer.mp4
+          cp /tmp/orbit.mp4 public/clips/orbit-source.mp4
+          ls -la public/clips
+
+      - name: Commit assets
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add public/frames public/clips
+          git commit -m "Add generated video assets and hero frame sequence"
+          git push
