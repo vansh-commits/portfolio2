@@ -48,6 +48,7 @@ setTimeout(revealPage, 6000);
 const canvas = document.getElementById("heroCanvas");
 const sequence = new FrameSequence(canvas, { onProgress: setLoadProgress });
 sequence.init();
+window.__seq = sequence;
 
 const orbitDeg = document.getElementById("orbitDeg");
 const frameReadout = document.getElementById("frameReadout");
@@ -188,8 +189,12 @@ document.querySelectorAll("video[data-src]").forEach((video) => {
     start: "top 150%",
     once: true,
     onEnter() {
-      video.src = video.dataset.src;
-      video.play().catch(() => {});
+      video.muted = true;
+      const h264 = video.canPlayType('video/mp4; codecs="avc1.42E01E"');
+      video.src = h264 ? video.dataset.src : video.dataset.srcWebm;
+      const tryPlay = () => video.play().catch(() => {});
+      video.addEventListener("canplay", tryPlay, { once: true });
+      tryPlay();
     },
   });
 });
